@@ -225,16 +225,20 @@ tsplot1 <- function(data, time_var, value_vars, plot_title = "Time Series Plot")
 #' }
 #'
 #' @export
-tsplot2 <-  function(data, time_var, value_vars, plot_title_prefix = "Time Series Plot") {
+tsplot2 <- function(data, time_var, value_vars, plot_title_prefix = "Time Series Plot") {
   # Convert the time variable to Date if it is not already a Date or POSIXct object.
   if (!inherits(data[[time_var]], "Date") && !inherits(data[[time_var]], "POSIXct")) {
     data[[time_var]] <- as.Date(data[[time_var]])
   }
   
+  # Generate a palette of distinct colours based on the number of variables.
+  colors <- scales::hue_pal()(length(value_vars))
+  
   # Loop over each variable in 'value_vars' to create and print a separate plot.
-  for (var in value_vars) {
+  for (i in seq_along(value_vars)) {
+    var <- value_vars[i]
     p <- ggplot2::ggplot(data, ggplot2::aes_string(x = time_var, y = var)) +
-      ggplot2::geom_line(size = 1) +
+      ggplot2::geom_line(size = 1, color = colors[i]) +  # Set the line color from the palette.
       ggthemes::theme_stata() +  # Apply the Stata theme from ggthemes.
       ggplot2::labs(
         title = paste(plot_title_prefix, "-", var),
@@ -295,27 +299,40 @@ tsplot2 <-  function(data, time_var, value_vars, plot_title_prefix = "Time Serie
 #' }
 #'
 #' @export
-tsplot3 <- function(data, time_var, value_vars, plot_title_prefix = "Time Series Plot") {
-  # Convert the time variable to Date if it is not already a Date or POSIXct object.
+tsplot3 <- function(data, time_var, value_vars, plot_title = "Time Series Plot") {
+  # Convert the time variable to Date if it isn't already a Date or POSIXct object.
   if (!inherits(data[[time_var]], "Date") && !inherits(data[[time_var]], "POSIXct")) {
     data[[time_var]] <- as.Date(data[[time_var]])
   }
   
-  # Loop over each variable in 'value_vars' to create and print a separate plot.
-  for (var in value_vars) {
-    p <- ggplot2::ggplot(data, ggplot2::aes_string(x = time_var, y = var)) +
-      ggplot2::geom_line(size = 1) +
-      ggthemes::theme_stata() +  # Apply the Stata theme from ggthemes.
-      ggplot2::labs(
-        title = paste(plot_title_prefix, "-", var),
-        x = time_var,
-        y = var
-      ) +
-      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-    
-    # Print the plot (each plot will appear separately).
-    print(p)
-  }
+  # Reshape the data from wide to long format using tidyr::pivot_longer.
+  data_long <- tidyr::pivot_longer(
+    data,
+    cols = tidyselect::all_of(value_vars),
+    names_to = "Variable",
+    values_to = "Value"
+  )
+  
+  # Determine the number of unique variables and generate a colour palette accordingly.
+  num_vars <- length(unique(data_long$Variable))
+  # Use scales::hue_pal() to generate 'num_vars' distinct colours.
+  palette <- scales::hue_pal()(num_vars)
+  
+  # Create the faceted plot with a color aesthetic mapped to the variable names.
+  p <- ggplot2::ggplot(data_long, ggplot2::aes_string(x = time_var, y = "Value", color = "Variable")) +
+    ggplot2::geom_line(size = 1) +
+    ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +  # Separate panels for each variable
+    ggplot2::scale_color_manual(values = palette) +  # Apply the custom colour palette
+    ggthemes::theme_stata() +  # Apply the Stata theme from ggthemes
+    ggplot2::labs(
+      title = plot_title,
+      x = time_var,
+      y = "Value"
+    ) +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
+  
+  # Print the plot.
+  print(p)
 }
 
 
