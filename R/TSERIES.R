@@ -708,3 +708,68 @@ urootc <- function(x) {
 
   return(suppressWarnings(final_results))
 }
+
+
+
+                    
+pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
+  # Create a list to store PACF data for each variable.
+  pacf_list <- list()
+  
+  # Loop over each variable to compute its PACF.
+  for (var in value_vars) {
+    # Remove missing values.
+    ts_data <- stats::na.omit(data[[var]])
+    n <- length(ts_data)
+    
+    # Compute PACF (without plotting) using stats::pacf.
+    pacf_res <- stats::pacf(ts_data, lag.max = lag.max, plot = FALSE)
+    # Extract lags and PACF values.
+    lags <- as.vector(pacf_res$lag)
+    pacf_vals <- as.vector(pacf_res$acf)
+    
+    # Create a data frame for this variable.
+    df_pacf <- data.frame(
+      Variable = var,
+      lag = lags,
+      pacf = pacf_vals,
+      n = n,
+      ci = 1.96 / sqrt(n)  # Approximate 95% confidence interval for white noise.
+    )
+    
+    pacf_list[[var]] <- df_pacf
+  }
+  
+  # Combine the individual data frames into one.
+  df_pacf_all <- do.call(rbind, pacf_list)
+  
+  # Create a data frame for the confidence interval (CI) lines,
+  # one row per variable. These CI values are constant for each variable.
+  ci_data <- unique(df_pacf_all[, c("Variable", "ci")])
+  ci_data$ci_pos <- ci_data$ci
+  ci_data$ci_neg <- -ci_data$ci
+  
+  # Build the faceted PACF plot.
+  p <- ggplot2::ggplot(df_pacf_all, ggplot2::aes(x = lag, y = pacf)) +
+    # Draw vertical segments for the PACF values with thicker blue lines.
+    ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = pacf), 
+                          color = "blue", size = 3.8) +
+    # Add a horizontal dashed line at 0.
+    ggplot2::geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
+    # Add the 95% confidence interval lines as red dashed lines.
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos), 
+                        color = "red", linetype = "dashed", size = 1) +
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg), 
+                        color = "red", linetype = "dashed", size = 1) +
+    # Facet the plot by variable.
+    ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +
+    # Add labels and apply a theme.
+    ggplot2::labs(title = plot_title, x = "Lag", y = "PACF") +
+    ggthemes::theme_stata() +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
+  
+  # Print the plot.
+  print(p)
+}
+
+                
