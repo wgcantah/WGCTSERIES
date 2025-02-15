@@ -709,10 +709,7 @@ urootc <- function(x) {
   return(suppressWarnings(final_results))
 }
 
-
-
-                    
-pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
+pacf <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
   # Check if required packages are installed, and load them.
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required but not installed. Please install it first.")
