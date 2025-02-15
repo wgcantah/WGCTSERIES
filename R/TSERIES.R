@@ -710,25 +710,35 @@ urootc <- function(x) {
 }
 
 pacf <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
-  # Check if required packages are installed, and load them.
-  if (!requireNamespace("ggplot2", quietly = TRUE)) {
-    stop("Package 'ggplot2' is required but not installed. Please install it first.")
+  # Check that 'data' is a data frame.
+  if (!is.data.frame(data)) {
+    stop("The 'data' argument must be a data frame.")
   }
-  if (!requireNamespace("ggthemes", quietly = TRUE)) {
-    stop("Package 'ggthemes' is required but not installed. Please install it first.")
-  }
-  
-  # Load the libraries.
-  library(ggplot2)
-  library(ggthemes)
   
   # Create a list to store PACF data for each variable.
   pacf_list <- list()
   
   # Loop over each variable to compute its PACF.
   for (var in value_vars) {
+    # Check that the variable exists in the data.
+    if (!var %in% names(data)) {
+      warning(paste("Variable", var, "not found in the data. Skipping it."))
+      next
+    }
+    
     # Remove missing values.
     ts_data <- stats::na.omit(data[[var]])
+    
+    # Check if ts_data is non-empty and numeric.
+    if (length(ts_data) == 0) {
+      warning(paste("Variable", var, "has no non-missing data. Skipping it."))
+      next
+    }
+    if (!is.numeric(ts_data)) {
+      warning(paste("Variable", var, "is not numeric. Skipping it."))
+      next
+    }
+    
     n <- length(ts_data)
     
     # Compute PACF (without plotting) using stats::pacf.
@@ -749,6 +759,11 @@ pacf <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Pl
     pacf_list[[var]] <- df_pacf
   }
   
+  # Check if any variable produced PACF data.
+  if (length(pacf_list) == 0) {
+    stop("No valid PACF data to plot. Please check your 'value_vars' and input data.")
+  }
+  
   # Combine the individual data frames into one.
   df_pacf_all <- do.call(rbind, pacf_list)
   
@@ -759,19 +774,14 @@ pacf <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Pl
   
   # Build the faceted PACF plot.
   p <- ggplot2::ggplot(df_pacf_all, ggplot2::aes(x = lag, y = pacf)) +
-    # Draw vertical segments for the PACF values with thicker blue lines.
     ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = pacf), 
                           color = "blue", size = 3.8) +
-    # Add a horizontal dashed line at 0.
     ggplot2::geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
-    # Add the 95% confidence interval lines as red dashed lines.
     ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos), 
                         color = "red", linetype = "dashed", size = 1) +
     ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg), 
                         color = "red", linetype = "dashed", size = 1) +
-    # Facet the plot by variable.
     ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +
-    # Add labels and apply a theme.
     ggplot2::labs(title = plot_title, x = "Lag", y = "PACF") +
     ggthemes::theme_stata() +
     ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
