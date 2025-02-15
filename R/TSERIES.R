@@ -713,6 +713,18 @@ urootc <- function(x) {
 
                     
 pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
+  # Check if required packages are installed, and load them.
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but not installed. Please install it first.")
+  }
+  if (!requireNamespace("ggthemes", quietly = TRUE)) {
+    stop("Package 'ggthemes' is required but not installed. Please install it first.")
+  }
+  
+  # Load the libraries.
+  library(ggplot2)
+  library(ggthemes)
+  
   # Create a list to store PACF data for each variable.
   pacf_list <- list()
   
@@ -743,8 +755,7 @@ pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PAC
   # Combine the individual data frames into one.
   df_pacf_all <- do.call(rbind, pacf_list)
   
-  # Create a data frame for the confidence interval (CI) lines,
-  # one row per variable. These CI values are constant for each variable.
+  # Create a data frame for the confidence interval (CI) lines.
   ci_data <- unique(df_pacf_all[, c("Variable", "ci")])
   ci_data$ci_pos <- ci_data$ci
   ci_data$ci_neg <- -ci_data$ci
@@ -771,5 +782,3 @@ pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PAC
   # Print the plot.
   print(p)
 }
-
-                
