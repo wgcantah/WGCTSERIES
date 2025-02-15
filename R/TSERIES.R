@@ -709,6 +709,7 @@ urootc <- function(x) {
   return(suppressWarnings(final_results))
 }
 
+
 pacfplot <- function(df, columns) {
   # Check if the specified columns exist in the dataframe
   if (!all(columns %in% names(df))) {
