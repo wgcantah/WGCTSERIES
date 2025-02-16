@@ -147,39 +147,57 @@ tsset <- function(df, frequency = 1, start = c(1, 1)) {
 #' }
 #'
 #' @export
-tsplot1 <- function(data, time_var, value_vars, plot_title = "Time Series Plot") {
-  # Convert the time variable to Date if it's not already Date/POSIXct.
-  if (!inherits(data[[time_var]], "Date") && !inherits(data[[time_var]], "POSIXct")) {
-    data[[time_var]] <- as.Date(data[[time_var]])
+tsplot1 <- function(data, time_col, vars,
+                    theme_choice = c("economist", "fivethirtyeight", "minimal"),
+                    title = "Time Series Plot") {
+  # Check that required packages are available
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but not installed.")
   }
-  
-  # Reshape the data from wide to long format using tidyr::pivot_longer.
-  # Here, tidyselect::all_of ensures that the character vector of column names in 'value_vars' is correctly interpreted.
-  data_long <- tidyr::pivot_longer(
-    data,
-    cols = tidyselect::all_of(value_vars),
-    names_to = "Variable",
-    values_to = "Value"
-  )
-  
-  # Build the time series plot using ggplot2 and apply the Stata theme from ggthemes.
-  p <- ggplot2::ggplot(data_long, ggplot2::aes_string(x = time_var, y = "Value", color = "Variable")) +
+  if (!requireNamespace("ggthemes", quietly = TRUE)) {
+    stop("Package 'ggthemes' is required but not installed.")
+  }
+  if (!requireNamespace("tidyr", quietly = TRUE)) {
+    stop("Package 'tidyr' is required but not installed.")
+  }
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop("Package 'dplyr' is required but not installed.")
+  }
+
+  # Match the theme_choice argument
+  theme_choice <- match.arg(theme_choice)
+
+  # Ensure the time column is in POSIXct or Date format
+  if (!inherits(data[[time_col]], "POSIXct") && !inherits(data[[time_col]], "Date")) {
+    data[[time_col]] <- as.POSIXct(data[[time_col]])
+  }
+
+  # Select only the necessary columns and reshape to long format
+  data_long <- dplyr::select(data, dplyr::all_of(c(time_col, vars))) %>%
+    tidyr::pivot_longer(
+      cols = tidyr::all_of(vars),
+      names_to = "variable",
+      values_to = "value"
+    )
+
+  # Create the base plot
+  p <- ggplot2::ggplot(data_long, ggplot2::aes_string(x = time_col, y = "value", color = "variable")) +
     ggplot2::geom_line(size = 1) +
-    ggthemes::theme_stata() +  # Apply Stata theme
-    ggplot2::labs(
-      title = plot_title,
-      x = time_var,
-      y = "Value",
-      color = "Variable"
-    ) +
-    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-  
-  # Display the plot.
-  print(p)
+    ggplot2::labs(title = title, x = time_col, y = "Value", color = "Variable") +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+
+  # Apply the selected theme from ggthemes or ggplot2
+  if (theme_choice == "economist") {
+    p <- p + ggthemes::theme_economist() + ggthemes::scale_color_economist()
+  } else if (theme_choice == "fivethirtyeight") {
+    p <- p + ggthemes::theme_fivethirtyeight()
+  } else if (theme_choice == "minimal") {
+    p <- p + ggplot2::theme_minimal()
+  }
+
+  return(p)
 }
 
-
-                    
 
 #' Create a Time Series Plot with the Stata Theme
 #'
@@ -225,31 +243,48 @@ tsplot1 <- function(data, time_var, value_vars, plot_title = "Time Series Plot")
 #' }
 #'
 #' @export
-tsplot2 <- function(data, time_var, value_vars, plot_title_prefix = "Time Series Plot") {
-  # Convert the time variable to Date if it is not already a Date or POSIXct object.
-  if (!inherits(data[[time_var]], "Date") && !inherits(data[[time_var]], "POSIXct")) {
-    data[[time_var]] <- as.Date(data[[time_var]])
+tsplot2 <- function(data, time_col, vars, title = "Time Series Plot") {
+  # Check that required packages are available
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but not installed.")
   }
-  
-  # Generate a palette of distinct colours based on the number of variables.
-  colors <- scales::hue_pal()(length(value_vars))
-  
-  # Loop over each variable in 'value_vars' to create and print a separate plot.
-  for (i in seq_along(value_vars)) {
-    var <- value_vars[i]
-    p <- ggplot2::ggplot(data, ggplot2::aes_string(x = time_var, y = var)) +
-      ggplot2::geom_line(size = 1, color = colors[i]) +  # Set the line color from the palette.
-      ggthemes::theme_stata() +  # Apply the Stata theme from ggthemes.
-      ggplot2::labs(
-        title = paste(plot_title_prefix, "-", var),
-        x = time_var,
-        y = var
-      ) +
-      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-    
-    # Print the plot (each plot will appear separately).
-    print(p)
+  if (!requireNamespace("ggthemes", quietly = TRUE)) {
+    stop("Package 'ggthemes' is required but not installed.")
   }
+  if (!requireNamespace("tidyr", quietly = TRUE)) {
+    stop("Package 'tidyr' is required but not installed.")
+  }
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop("Package 'dplyr' is required but not installed.")
+  }
+
+  # Ensure the time column is in Date or POSIXct format; convert if necessary.
+  if (!inherits(data[[time_col]], "Date") && !inherits(data[[time_col]], "POSIXct")) {
+    data[[time_col]] <- as.POSIXct(data[[time_col]])
+  }
+
+  # Select only the time column and specified variables, then reshape into long format.
+  data_long <- dplyr::select(data, dplyr::all_of(c(time_col, vars))) %>%
+    tidyr::pivot_longer(
+      cols = tidyr::all_of(vars),
+      names_to = "variable",
+      values_to = "value"
+    )
+
+  # Build the time series plot using ggplot2 and apply the Stata theme from ggthemes.
+  p <- ggplot2::ggplot(data_long, ggplot2::aes_string(x = time_col, y = "value", color = "variable")) +
+    ggplot2::geom_line(size = 1) +
+    ggplot2::labs(
+      title = title,
+      x = time_col,
+      y = "Value",
+      color = "Variable"
+    ) +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1)) +
+    ggthemes::theme_stata() +
+    ggthemes::scale_colour_stata()
+
+  return(p)
 }
 
 
@@ -299,42 +334,49 @@ tsplot2 <- function(data, time_var, value_vars, plot_title_prefix = "Time Series
 #' }
 #'
 #' @export
-tsplot3 <- function(data, time_var, value_vars, plot_title = "Time Series Plot") {
-  # Convert the time variable to Date if it isn't already a Date or POSIXct object.
-  if (!inherits(data[[time_var]], "Date") && !inherits(data[[time_var]], "POSIXct")) {
-    data[[time_var]] <- as.Date(data[[time_var]])
+tsplot3 <- function(data, time_col, vars, title = "Time Series Plot") {
+  # Check that required packages are available
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but not installed.")
   }
-  
-  # Reshape the data from wide to long format using tidyr::pivot_longer.
-  data_long <- tidyr::pivot_longer(
-    data,
-    cols = tidyselect::all_of(value_vars),
-    names_to = "Variable",
-    values_to = "Value"
-  )
-  
-  # Determine the number of unique variables and generate a colour palette accordingly.
-  num_vars <- length(unique(data_long$Variable))
-  # Use scales::hue_pal() to generate 'num_vars' distinct colours.
-  palette <- scales::hue_pal()(num_vars)
-  
-  # Create the faceted plot with a color aesthetic mapped to the variable names.
-  p <- ggplot2::ggplot(data_long, ggplot2::aes_string(x = time_var, y = "Value", color = "Variable")) +
+  if (!requireNamespace("ggthemes", quietly = TRUE)) {
+    stop("Package 'ggthemes' is required but not installed.")
+  }
+  if (!requireNamespace("tidyr", quietly = TRUE)) {
+    stop("Package 'tidyr' is required but not installed.")
+  }
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop("Package 'dplyr' is required but not installed.")
+  }
+
+  # Ensure the time column is in Date or POSIXct format; convert if necessary.
+  if (!inherits(data[[time_col]], "Date") && !inherits(data[[time_col]], "POSIXct")) {
+    data[[time_col]] <- as.POSIXct(data[[time_col]])
+  }
+
+  # Select the time column and the specified variables, then reshape to long format.
+  data_long <- dplyr::select(data, dplyr::all_of(c(time_col, vars))) %>%
+    tidyr::pivot_longer(
+      cols = tidyr::all_of(vars),
+      names_to = "variable",
+      values_to = "value"
+    )
+
+  # Build the time series plot with separate facets for each variable
+  p <- ggplot2::ggplot(data_long, ggplot2::aes_string(x = time_col, y = "value", color = "variable")) +
     ggplot2::geom_line(size = 1) +
-    ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +  # Separate panels for each variable
-    ggplot2::scale_color_manual(values = palette) +  # Apply the custom colour palette
-    ggthemes::theme_stata() +  # Apply the Stata theme from ggthemes
+    ggplot2::facet_wrap(~ variable, scales = "free_y") +
     ggplot2::labs(
-      title = plot_title,
-      x = time_var,
+      title = title,
+      x = time_col,
       y = "Value"
     ) +
-    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-  
-  # Print the plot.
-  print(p)
-}
+    # Apply the built-in Stata theme and corresponding color scale from ggthemes
+    ggthemes::theme_stata() +
+    ggthemes::scale_colour_stata()
 
+  return(p)
+}
 
 
 #' Plot Autocorrelation Function with the Stata Theme
@@ -374,120 +416,65 @@ tsplot3 <- function(data, time_var, value_vars, plot_title = "Time Series Plot")
 #' }
 #'
 #' @export
-acfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted ACF Plot") {
-  # Create a list to store ACF data for each variable.
-  acf_list <- list()
-  
-  # Loop over each variable to compute its ACF.
-  for (var in value_vars) {
-    # Remove missing values.
-    ts_data <- stats::na.omit(data[[var]])
-    n <- length(ts_data)
-    
-    # Compute ACF (without plotting) using stats::acf.
-    acf_res <- stats::acf(ts_data, lag.max = lag.max, plot = FALSE)
-    # Extract lags and ACF values.
-    lags <- as.vector(acf_res$lag)
-    acf_vals <- as.vector(acf_res$acf)
-    
-    # Create a data frame for this variable.
-    df_acf <- data.frame(
-      Variable = var,
-      lag = lags,
-      acf = acf_vals,
-      n = n,
-      ci = 1.96 / sqrt(n)  # 95% confidence interval (approximate) for white noise.
-    )
-    
-    acf_list[[var]] <- df_acf
+acfplot <- function(data, vars, lag.max = 20, title = "Autocorrelation Function") {
+  # Check that each selected variable exists in the data frame and is numeric.
+  for (v in vars) {
+    if (!v %in% names(data))
+      stop(paste("Variable", v, "not found in the data frame."))
+    if (!is.numeric(data[[v]]))
+      stop(paste("Variable", v, "must be numeric."))
   }
-  
-  # Combine the individual data frames into one.
-  df_acf_all <- do.call(rbind, acf_list)
-  
-  # Create a data frame for the confidence interval (CI) lines,
-  # one row per variable. These CI values are constant for each variable.
-  ci_data <- unique(df_acf_all[, c("Variable", "ci")])
-  ci_data$ci_pos <- ci_data$ci
-  ci_data$ci_neg <- -ci_data$ci
-  
-  # Build the faceted ACF plot.
-  p <- ggplot2::ggplot(df_acf_all, ggplot2::aes(x = lag, y = acf)) +
-    # Draw vertical segments for the ACF values with thicker blue lines.
-    ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = acf), 
-                          color = "blue", size = 3.8) +
-    # Add a horizontal dashed line at 0.
-    ggplot2::geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
-    # Add the 95% confidence interval lines as red dashed lines.
-    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos), 
-                        color = "red", linetype = "dashed", size = 1) +
-    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg), 
-                        color = "red", linetype = "dashed", size = 1) +
-    # Facet the plot by variable.
-    ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +
-    # Add labels and apply the Stata theme.
-    ggplot2::labs(title = plot_title, x = "Lag", y = "ACF") +
-    ggthemes::theme_stata() +
-    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-  
-  # Print the plot.
-  print(p)
+
+  # Calculate the ACF for each variable and store the results in a list.
+  acf_list <- lapply(vars, function(v) {
+    x <- data[[v]]
+    acf_obj <- stats::acf(x, plot = FALSE, lag.max = lag.max)
+    # Convert the lag and acf arrays to vectors.
+    lags <- as.vector(acf_obj$lag)
+    acf_values <- as.vector(acf_obj$acf)
+    # Create a data frame with the variable name, lag, and acf values.
+    data.frame(variable = v, lag = lags, acf = acf_values)
+  })
+
+  # Combine the list of data frames into one.
+  acf_df <- do.call(rbind, acf_list)
+
+  # Create the ACF plot using ggplot2 and facet by variable.
+  p <- ggplot2::ggplot(acf_df, ggplot2::aes(x = lag, y = acf)) +
+    ggplot2::geom_segment(ggplot2::aes(xend = lag, yend = 0), color = "steelblue") +
+    ggplot2::geom_hline(yintercept = 0, color = "black", linetype = "dashed") +
+    ggplot2::labs(title = title, x = "Lag", y = "ACF") +
+    ggplot2::facet_wrap(~ variable, scales = "free_y") +
+    ggthemes::theme_stata()
+
+  return(p)
 }
 
-
-#' Plot Partial Autocorrelation Function with the Stata Theme
+#' Partial Autocorrelation Function Plot
 #'
-#' This function computes and plots the autocorrelation function (ACF) for one or more numeric variables
-#' from a data frame. For each variable specified in \code{vars}, the ACF is calculated using \code{stats::acf}
-#' (with \code{plot = FALSE}) and the results are combined into a single data frame. The ACF values are then plotted
-#' using \code{ggplot2} with each variable shown in its own facet. The plot is styled using the Stata theme from
-#' \code{ggthemes}.
+#' @param data
+#' @param value_vars
+#' @param lag.max
+#' @param plot_title
 #'
-#' @param data A data frame containing the numeric variables.
-#' @param vars A character vector of column names in \code{data} for which the ACF should be computed.
-#' @param lag.max An integer specifying the maximum lag to be used in the ACF computation. The default is 20.
-#' @param title A character string for the title of the plot. Defaults to "Autocorrelation Function".
-#'
-#' @return A \code{ggplot} object displaying the ACF for each variable in separate facets.
-#'
-#' @details
-#' The function begins by verifying that each variable in \code{vars} exists in \code{data} and is numeric.
-#' It then calculates the ACF for each variable using the base R function \code{acf}. The lags and ACF values
-#' are extracted from the \code{acf} object and combined into a data frame. Finally, a faceted plot is created using
-#' \code{ggplot2::geom_segment} and \code{ggplot2::facet_wrap}, with a horizontal dashed line at y = 0 for reference.
-#' The Stata theme from \code{ggthemes} is applied to the plot.
-#'
-#' @examples
-#' \dontrun{
-#' # Create example data
-#' set.seed(42)
-#' data <- data.frame(
-#'   var1 = rnorm(100),
-#'   var2 = rnorm(100)
-#' )
-#'
-#' # Plot the ACF for var1 and var2 with a maximum lag of 20
-#' p <- plot_acf_stata(data, vars = c("var1", "var2"), lag.max = 20, title = "ACF Plot")
-#' print(p)
-#' }
-#'
+#' @returns
 #' @export
 pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
   # Create a list to store PACF data for each variable.
   pacf_list <- list()
-  
+
   # Loop over each variable to compute its PACF.
   for (var in value_vars) {
     # Remove missing values.
     ts_data <- stats::na.omit(data[[var]])
     n <- length(ts_data)
-    
+
     # Compute PACF (without plotting) using stats::pacf.
     pacf_res <- stats::pacf(ts_data, lag.max = lag.max, plot = FALSE)
     # Extract lags and PACF values.
     lags <- as.vector(pacf_res$lag)
     pacf_vals <- as.vector(pacf_res$acf)
-    
+
     # Create a data frame for this variable.
     df_pacf <- data.frame(
       Variable = var,
@@ -496,32 +483,32 @@ pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PAC
       n = n,
       ci = 1.96 / sqrt(n)  # 95% confidence interval for white noise
     )
-    
+
     pacf_list[[var]] <- df_pacf
   }
-  
+
   # Combine the individual data frames into one.
   df_pacf_all <- do.call(rbind, pacf_list)
-  
+
   # Create a data frame for the confidence interval lines
   ci_data <- unique(df_pacf_all[, c("Variable", "ci")])
   ci_data$ci_pos <- ci_data$ci
   ci_data$ci_neg <- -ci_data$ci
-  
+
   # Build the faceted PACF plot
   p <- ggplot2::ggplot(df_pacf_all, ggplot2::aes(x = lag, y = pacf)) +
-    ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = pacf), 
+    ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = pacf),
                           color = "blue", size = 3.8) +
     ggplot2::geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
-    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos), 
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos),
                         color = "red", linetype = "dashed", linewidth = 0.5) +
-    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg), 
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg),
                         color = "red", linetype = "dashed", linewidth = 0.5) +
     ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +
     ggplot2::labs(title = plot_title, x = "Lag", y = "PACF") +
     ggthemes::theme_stata() +
     ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-  
+
   print(p)
 }
 
@@ -796,4 +783,3 @@ urootc <- function(x) {
 
   return(suppressWarnings(final_results))
 }
-
