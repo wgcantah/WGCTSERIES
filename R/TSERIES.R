@@ -148,8 +148,8 @@ tsset <- function(df, frequency = 1, start = c(1, 1)) {
 #'
 #' @export
 tsplot1 <- function(data, time_col, vars,
-                    theme_choice = c("economist", "fivethirtyeight", "minimal"),
-                    title = "Time Series Plot") {
+                             theme_choice = c("economist", "fivethirtyeight", "minimal"),
+                             title = "Time Series Plot") {
   # Check that required packages are available
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required but not installed.")
@@ -450,67 +450,7 @@ acfplot <- function(data, vars, lag.max = 20, title = "Autocorrelation Function"
   return(p)
 }
 
-#' Partial Autocorrelation Function Plot
-#'
-#' @param data
-#' @param value_vars
-#' @param lag.max
-#' @param plot_title
-#'
-#' @returns
-#' @export
-pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
-  # Create a list to store PACF data for each variable.
-  pacf_list <- list()
 
-  # Loop over each variable to compute its PACF.
-  for (var in value_vars) {
-    # Remove missing values.
-    ts_data <- stats::na.omit(data[[var]])
-    n <- length(ts_data)
-
-    # Compute PACF (without plotting) using stats::pacf.
-    pacf_res <- stats::pacf(ts_data, lag.max = lag.max, plot = FALSE)
-    # Extract lags and PACF values.
-    lags <- as.vector(pacf_res$lag)
-    pacf_vals <- as.vector(pacf_res$acf)
-
-    # Create a data frame for this variable.
-    df_pacf <- data.frame(
-      Variable = var,
-      lag = lags,
-      pacf = pacf_vals,
-      n = n,
-      ci = 1.96 / sqrt(n)  # 95% confidence interval for white noise
-    )
-
-    pacf_list[[var]] <- df_pacf
-  }
-
-  # Combine the individual data frames into one.
-  df_pacf_all <- do.call(rbind, pacf_list)
-
-  # Create a data frame for the confidence interval lines
-  ci_data <- unique(df_pacf_all[, c("Variable", "ci")])
-  ci_data$ci_pos <- ci_data$ci
-  ci_data$ci_neg <- -ci_data$ci
-
-  # Build the faceted PACF plot
-  p <- ggplot2::ggplot(df_pacf_all, ggplot2::aes(x = lag, y = pacf)) +
-    ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = pacf),
-                          color = "blue", size = 3.8) +
-    ggplot2::geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
-    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos),
-                        color = "red", linetype = "dashed", linewidth = 0.5) +
-    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg),
-                        color = "red", linetype = "dashed", linewidth = 0.5) +
-    ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +
-    ggplot2::labs(title = plot_title, x = "Lag", y = "PACF") +
-    ggthemes::theme_stata() +
-    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-
-  print(p)
-}
 
 #' Compute Differenced Time Series Variable
 #'
@@ -782,4 +722,67 @@ urootc <- function(x) {
   final_results <- do.call(rbind, results)
 
   return(suppressWarnings(final_results))
+}
+
+                    
+#' Partial Autocorrelation Function Plot
+#'
+#' @param data
+#' @param value_vars
+#' @param lag.max
+#' @param plot_title
+#'
+#' @returns
+#' @export
+pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
+  # Create a list to store PACF data for each variable.
+  pacf_list <- list()
+
+  # Loop over each variable to compute its PACF.
+  for (var in value_vars) {
+    # Remove missing values.
+    ts_data <- stats::na.omit(data[[var]])
+    n <- length(ts_data)
+
+    # Compute PACF (without plotting) using stats::pacf.
+    pacf_res <- stats::pacf(ts_data, lag.max = lag.max, plot = FALSE)
+    # Extract lags and PACF values.
+    lags <- as.vector(pacf_res$lag)
+    pacf_vals <- as.vector(pacf_res$acf)
+
+    # Create a data frame for this variable.
+    df_pacf <- data.frame(
+      Variable = var,
+      lag = lags,
+      pacf = pacf_vals,
+      n = n,
+      ci = 1.96 / sqrt(n)  # 95% confidence interval for white noise
+    )
+
+    pacf_list[[var]] <- df_pacf
+  }
+
+  # Combine the individual data frames into one.
+  df_pacf_all <- do.call(rbind, pacf_list)
+
+  # Create a data frame for the confidence interval lines
+  ci_data <- unique(df_pacf_all[, c("Variable", "ci")])
+  ci_data$ci_pos <- ci_data$ci
+  ci_data$ci_neg <- -ci_data$ci
+
+  # Build the faceted PACF plot
+  p <- ggplot2::ggplot(df_pacf_all, ggplot2::aes(x = lag, y = pacf)) +
+    ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = pacf),
+                          color = "blue", size = 3.8) +
+    ggplot2::geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos),
+                        color = "red", linetype = "dashed", linewidth = 0.5) +
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg),
+                        color = "red", linetype = "dashed", linewidth = 0.5) +
+    ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +
+    ggplot2::labs(title = plot_title, x = "Lag", y = "PACF") +
+    ggthemes::theme_stata() +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
+
+  print(p)
 }
