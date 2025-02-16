@@ -435,7 +435,58 @@ acfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted ACF 
 }
 
 
-
+pacfplot <- function(data, value_vars, lag.max = NULL, plot_title = "Faceted PACF Plot") {
+  # Create a list to store PACF data for each variable.
+  pacf_list <- list()
+  
+  # Loop over each variable to compute its PACF.
+  for (var in value_vars) {
+    # Remove missing values.
+    ts_data <- stats::na.omit(data[[var]])
+    n <- length(ts_data)
+    
+    # Compute PACF (without plotting) using stats::pacf.
+    pacf_res <- stats::pacf(ts_data, lag.max = lag.max, plot = FALSE)
+    # Extract lags and PACF values.
+    lags <- as.vector(pacf_res$lag)
+    pacf_vals <- as.vector(pacf_res$acf)
+    
+    # Create a data frame for this variable.
+    df_pacf <- data.frame(
+      Variable = var,
+      lag = lags,
+      pacf = pacf_vals,
+      n = n,
+      ci = 1.96 / sqrt(n)  # 95% confidence interval for white noise
+    )
+    
+    pacf_list[[var]] <- df_pacf
+  }
+  
+  # Combine the individual data frames into one.
+  df_pacf_all <- do.call(rbind, pacf_list)
+  
+  # Create a data frame for the confidence interval lines
+  ci_data <- unique(df_pacf_all[, c("Variable", "ci")])
+  ci_data$ci_pos <- ci_data$ci
+  ci_data$ci_neg <- -ci_data$ci
+  
+  # Build the faceted PACF plot
+  p <- ggplot2::ggplot(df_pacf_all, ggplot2::aes(x = lag, y = pacf)) +
+    ggplot2::geom_segment(ggplot2::aes(xend = lag, y = 0, yend = pacf), 
+                          color = "blue", size = 3.8) +
+    ggplot2::geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_pos), 
+                        color = "red", linetype = "dashed", linewidth = 0.5) +
+    ggplot2::geom_hline(data = ci_data, ggplot2::aes(yintercept = ci_neg), 
+                        color = "red", linetype = "dashed", linewidth = 0.5) +
+    ggplot2::facet_wrap(ggplot2::vars(Variable), scales = "free_y") +
+    ggplot2::labs(title = plot_title, x = "Lag", y = "PACF") +
+    ggthemes::theme_stata() +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
+  
+  print(p)
+}
 
 #' Compute Differenced Time Series Variable
 #'
@@ -709,59 +760,3 @@ urootc <- function(x) {
   return(suppressWarnings(final_results))
 }
 
-
-pacfplot <- function(df, columns) {
-  # Check if the specified columns exist in the dataframe
-  if (!all(columns %in% names(df))) {
-    missing_cols <- columns[!(columns %in% names(df))]
-    stop(paste("The following columns were not found in the dataframe:", 
-               paste(missing_cols, collapse = ", ")))
-  }
-  
-  # Helper function to generate a PACF plot for a single column
-  plot_single_pacf <- function(var_name) {
-    # Extract the time series vector from the dataframe
-    x <- df[[var_name]]
-    
-    # Compute the PACF without plotting (using stats::pacf)
-    pacf_obj <- stats::pacf(x, plot = FALSE)
-    
-    # Convert the output to a data frame (coercing arrays to vectors)
-    pacf_df <- data.frame(
-      lag  = as.vector(pacf_obj$lag),
-      pacf = as.vector(pacf_obj$acf)
-    )
-    
-    # Compute the 95% confidence limits (using qnorm for approx 1.96/sqrt(n))
-    n <- length(x)
-    conf_limit <- stats::qnorm(0.975) / sqrt(n)
-    
-    # Create the PACF plot using ggplot2, drawing thicker blue lines for the PACF bars
-    p <- ggplot2::ggplot(pacf_df, ggplot2::aes(x = lag, y = pacf)) +
-      # Horizontal dashed line at zero
-      ggplot2::geom_hline(ggplot2::aes(yintercept = 0), color = "gray", linetype = "dashed") +
-      # Thicker blue vertical bars (segments from 0 to each PACF value)
-      ggplot2::geom_segment(ggplot2::aes(xend = lag, yend = 0), color = "blue", size = 2) +
-      # Dashed red lines for the 95% confidence intervals
-      ggplot2::geom_hline(ggplot2::aes(yintercept = conf_limit), linetype = "dashed", color = "red") +
-      ggplot2::geom_hline(ggplot2::aes(yintercept = -conf_limit), linetype = "dashed", color = "red") +
-      # Labels and title
-      ggplot2::labs(title = paste("Partial Autocorrelation Function for", var_name),
-                    x = "Lag", y = "PACF") +
-      # Apply the Stata theme from ggthemes
-      ggthemes::theme_stata()
-    
-    return(p)
-  }
-  
-  # Generate the PACF plot(s) for the selected column(s)
-  plot_list <- lapply(columns, plot_single_pacf)
-  
-  # If only one column was selected, return its plot directly; otherwise, return a named list of plots.
-  if (length(plot_list) == 1) {
-    return(plot_list[[1]])
-  } else {
-    names(plot_list) <- columns
-    return(plot_list)
-  }
-}
